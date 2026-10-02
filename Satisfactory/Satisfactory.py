@@ -1,6 +1,6 @@
 import csv
 import tkinter as tk
-from tkinter import ttk, filedialog
+from tkinter import ttk, filedialog, messagebox
 
 RESOURCE_NODES = ["鉄鉱石", "銅鉱石", "石灰岩", "石炭", "カテリウム鉱石", "未加工石英", "硫黄", "原油", "SAM", "間欠泉", "ボーキサイト", "水", "窒素ガス", "ウラン", "石英", "菌糸", "バイオマス", "合成樹脂", "廃重油", "固体バイオ燃料", "コンクリート", "ゴム", "プラスチック", "ヘビー・モジュ・フレ", "アルミナ溶液", "鉄ロッド", "強化鉄板", "ローター", "固定子", "スパコン", "高速コネクター", "電磁制御棒", "水晶発振器", "コンピュータ", "AIリミッタ", "多目的フレーム", "自動ワイヤー", "回路基板", "クイックワイヤー", "ケーブル", "ワイヤー", "鋼梁", "コンクリート", "石英結晶", "シリカ", "アルミインゴット", "鉄インゴット", "銅インゴット", "鋼鉄インゴット"]
 PURITY_MAP = {"低純度": 0.5, "中純度": 1.0, "高純度": 2.0}
@@ -106,39 +106,95 @@ RECIPE_TABLES = {
 ALL_MACHINES = list(NODE_MACHINES.keys()) + list(RECIPE_TABLES.keys())
 COLUMNS = ("machine", "purity", "target", "amount", "fuku", "fuku_num", "cons_mat1", "cons_num1", "cons_mat2", "cons_num2", "cons_mat3", "cons_num3", "cons_mat4", "cons_num4")
 HEADERS = {"machine": "設置機", "purity": "ノード純度", "target": "生産物", "amount": "生産量/分", "fuku": "副産物", "fuku_num": "副産物量", "cons_mat1": "消費物1", "cons_num1": "消費量1", "cons_mat2": "消費物2", "cons_num2": "消費量2", "cons_mat3": "消費物3", "cons_num3": "消費量3", "cons_mat4": "消費物4", "cons_num4": "消費量4"}
+COLUMN_WIDTHS = {
+    "machine": 100,
+    "purity": 80,
+    "target": 120,
+    "amount": 80,
+    "fuku": 100,
+    "fuku_num": 80,
+    "cons_mat1": 100,
+    "cons_num1": 80,
+    "cons_mat2": 100,
+    "cons_num2": 80,
+    "cons_mat3": 100,
+    "cons_num3": 80,
+    "cons_mat4": 100,
+    "cons_num4": 80,
+}
 
 
 class SatisfactoryProductionPlanner:
     def __init__(self, root):
         self.root = root
         self.root.title("Satisfactory 生産ライン計算機")
-        self.root.geometry("1280x580")
+        self.root.geometry("1400x700")
+        self.root.minsize(900, 500)
+        
+        self._setup_styles()
+        self._create_input_frame()
+        self._create_table_frame()
+        
+    def _setup_styles(self):
+        """UIスタイルの設定"""
         self.style = ttk.Style()
         self.style.theme_use("clam")
+        
+        # フォント設定
+        self.label_font = ("Helvetica", 10)
+        self.button_font = ("Helvetica", 9)
+        self.header_font = ("Helvetica", 10, "bold")
+        
+        # スタイル定義
+        self.style.configure("Header.TLabel", font=self.header_font, foreground="#333333")
+        self.style.configure("TButton", font=self.button_font)
+        self.style.configure("Treeview.Heading", font=self.header_font)
+        self.style.configure("Treeview", rowheight=24, font=("Helvetica", 9))
 
-        self.input_frame = ttk.LabelFrame(self.root, text=" 編集コントロール ", padding="10")
+    def _create_input_frame(self):
+        """入力コントロールフレームの作成"""
+        self.input_frame = ttk.LabelFrame(self.root, text=" 編集コントロール ", padding="12")
         self.input_frame.pack(fill=tk.X, padx=15, pady=10)
 
-        self.cb_machine = ttk.Combobox(self.input_frame, values=ALL_MACHINES, state="readonly", width=15)
-        self.cb_machine.grid(row=0, column=1, padx=5, pady=5)
+        # 行1: 機械選択
+        ttk.Label(self.input_frame, text="設置機:", font=self.label_font).grid(row=0, column=0, sticky="w", padx=5, pady=8)
+        self.cb_machine = ttk.Combobox(self.input_frame, values=ALL_MACHINES, state="readonly", width=18, font=self.label_font)
+        self.cb_machine.grid(row=0, column=1, padx=5, pady=8)
 
-        self.lbl_dynamic1 = ttk.Label(self.input_frame, text="生産物/ノード:")
-        self.lbl_dynamic1.grid(row=0, column=2, padx=5, pady=5)
+        self.lbl_dynamic1 = ttk.Label(self.input_frame, text="生産物/ノード:", font=self.label_font)
+        self.lbl_dynamic1.grid(row=0, column=2, sticky="w", padx=5, pady=8)
+        self.cb_dynamic1 = ttk.Combobox(self.input_frame, state="readonly", width=20, font=self.label_font)
+        self.cb_dynamic1.grid(row=0, column=3, padx=5, pady=8)
 
-        self.cb_dynamic1 = ttk.Combobox(self.input_frame, state="readonly", width=18)
-        self.cb_dynamic1.grid(row=0, column=3, padx=5, pady=5)
+        self.lbl_purity = ttk.Label(self.input_frame, text="", font=self.label_font)
+        self.lbl_purity.grid(row=0, column=4, sticky="w", padx=5, pady=8)
+        self.cb_purity = ttk.Combobox(self.input_frame, values=list(PURITY_MAP.keys()), state="readonly", width=12, font=self.label_font)
+        self.cb_purity.grid(row=0, column=5, padx=5, pady=8)
 
-        self.lbl_purity = ttk.Label(self.input_frame, text="")
-        self.lbl_purity.grid(row=0, column=4, padx=5, pady=5)
+        # 行2: ボタン群
+        button_frame = ttk.Frame(self.input_frame)
+        button_frame.grid(row=1, column=0, columnspan=6, sticky="w", pady=8)
 
-        self.cb_purity = ttk.Combobox(self.input_frame, values=list(PURITY_MAP.keys()), state="readonly", width=10)
-        self.cb_purity.grid(row=0, column=5, padx=5, pady=5)
+        ttk.Button(button_frame, text="➕ 追加", command=self.add_row, width=12).pack(side=tk.LEFT, padx=3)
+        ttk.Button(button_frame, text="🔼 上へ", command=self.move_up, width=10).pack(side=tk.LEFT, padx=3)
+        ttk.Button(button_frame, text="🔽 下へ", command=self.move_down, width=10).pack(side=tk.LEFT, padx=3)
+        ttk.Button(button_frame, text="🗑️ 削除", command=self.delete_row, width=10).pack(side=tk.LEFT, padx=3)
+        ttk.Separator(button_frame, orient="vertical").pack(side=tk.LEFT, padx=8, fill=tk.Y)
+        ttk.Button(button_frame, text="💾 保存", command=self.save_csv, width=10).pack(side=tk.LEFT, padx=3)
+        ttk.Button(button_frame, text="📂 読込", command=self.load_csv, width=10).pack(side=tk.LEFT, padx=3)
 
-        self.table_frame = ttk.Frame(self.root, padding="10")
+        self.cb_machine.bind("<<ComboboxSelected>>", self.on_machine_selected)
+
+    def _create_table_frame(self):
+        """テーブルフレームの作成"""
+        self.table_frame = ttk.Frame(self.root)
         self.table_frame.pack(fill=tk.BOTH, expand=True, padx=15, pady=5)
 
+        # スクロールバー
         self.scrollbar_y = ttk.Scrollbar(self.table_frame, orient=tk.VERTICAL)
         self.scrollbar_x = ttk.Scrollbar(self.table_frame, orient=tk.HORIZONTAL)
+
+        # ツリービュー
         self.tree = ttk.Treeview(
             self.table_frame,
             columns=COLUMNS,
@@ -147,29 +203,25 @@ class SatisfactoryProductionPlanner:
             yscrollcommand=self.scrollbar_y.set,
             xscrollcommand=self.scrollbar_x.set,
         )
+
+        # スクロールバー設定
         self.scrollbar_y.config(command=self.tree.yview)
         self.scrollbar_y.pack(side=tk.RIGHT, fill=tk.Y)
         self.scrollbar_x.config(command=self.tree.xview)
         self.scrollbar_x.pack(side=tk.BOTTOM, fill=tk.X)
         self.tree.pack(fill=tk.BOTH, expand=True)
 
+        # 列の設定
         for col in COLUMNS:
             self.tree.heading(col, text=HEADERS[col], anchor=tk.CENTER)
-            self.tree.column(col, width=95, anchor=tk.CENTER)
-
-        self.cb_machine.bind("<<ComboboxSelected>>", self.on_machine_selected)
-
-        ttk.Button(self.input_frame, text="追加", command=self.add_row).grid(row=0, column=6, padx=5)
-        ttk.Button(self.input_frame, text="▲上へ", command=self.move_up).grid(row=0, column=7, padx=2)
-        ttk.Button(self.input_frame, text="▼下へ", command=self.move_down).grid(row=0, column=8, padx=2)
-        ttk.Button(self.input_frame, text="削除", command=self.delete_row).grid(row=0, column=9, padx=5)
-        ttk.Button(self.input_frame, text="💾保存", command=self.save_csv).grid(row=0, column=10, padx=5)
-        ttk.Button(self.input_frame, text="📂読込", command=self.load_csv).grid(row=0, column=11, padx=5)
+            self.tree.column(col, width=COLUMN_WIDTHS[col], anchor=tk.CENTER)
 
     def on_machine_selected(self, event=None):
+        """機械選択時の処理"""
         m = self.cb_machine.get()
         self.cb_dynamic1.set("")
         self.cb_purity.set("")
+        
         if m in NODE_MACHINES:
             self.lbl_dynamic1.config(text="資源ノード:")
             self.cb_dynamic1.config(values=RESOURCE_NODES)
@@ -182,29 +234,20 @@ class SatisfactoryProductionPlanner:
             self.cb_purity.config(state="disabled")
 
     def add_row(self):
+        """行を追加"""
         m, t, p = self.cb_machine.get(), self.cb_dynamic1.get(), self.cb_purity.get()
         if not m or not t:
+            messagebox.showwarning("入力エラー", "機械と生産物/ノードを選択してください")
             return
 
         row = {
-            "m": m,
-            "p": p if p else "",
-            "t": t,
-            "a": "",
-            "f": "",
-            "fn": "",
-            "m1": "",
-            "n1": "",
-            "m2": "",
-            "n2": "",
-            "m3": "",
-            "n3": "",
-            "m4": "",
-            "n4": "",
+            "m": m, "p": p if p else "", "t": t, "a": "", "f": "", "fn": "",
+            "m1": "", "n1": "", "m2": "", "n2": "", "m3": "", "n3": "", "m4": "", "n4": "",
         }
 
         if m in NODE_MACHINES:
             if not p:
+                messagebox.showwarning("入力エラー", "純度を選択してください")
                 return
             row["a"] = str(NODE_MACHINES[m] * PURITY_MAP[p])
         else:
@@ -217,65 +260,66 @@ class SatisfactoryProductionPlanner:
                 for i in range(min(4, len(c_list))):
                     row[f"m{i + 1}"], row[f"n{i + 1}"] = c_list[i][0], str(c_list[i][1])
 
-        self.tree.insert(
-            "",
-            tk.END,
-            values=(
-                row["m"],
-                row["p"],
-                row["t"],
-                row["a"],
-                row["f"],
-                row["fn"],
-                row["m1"],
-                row["n1"],
-                row["m2"],
-                row["n2"],
-                row["m3"],
-                row["n3"],
-                row["m4"],
-                row["n4"],
-            ),
-        )
+        self.tree.insert("", tk.END, values=(
+            row["m"], row["p"], row["t"], row["a"], row["f"], row["fn"],
+            row["m1"], row["n1"], row["m2"], row["n2"], row["m3"], row["n3"], row["m4"], row["n4"],
+        ))
 
     def delete_row(self):
-        for item in self.tree.selection():
+        """選択行を削除"""
+        selection = self.tree.selection()
+        if not selection:
+            messagebox.showinfo("情報", "削除する行を選択してください")
+            return
+        for item in selection:
             self.tree.delete(item)
 
     def move_up(self):
+        """選択行を上へ移動"""
         for item in self.tree.selection():
             idx = self.tree.index(item)
             if idx > 0:
                 self.tree.move(item, self.tree.parent(item), idx - 1)
 
     def move_down(self):
+        """選択行を下へ移動"""
         for item in reversed(self.tree.selection()):
             idx = self.tree.index(item)
             if idx < len(self.tree.get_children()) - 1:
                 self.tree.move(item, self.tree.parent(item), idx + 1)
 
     def save_csv(self):
-        path = filedialog.asksaveasfilename(defaultextension=".csv", filetypes=[("CSV", "*.csv")])
+        """CSVファイルに保存"""
+        path = filedialog.asksaveasfilename(defaultextension=".csv", filetypes=[("CSV Files", "*.csv"), ("All Files", "*.*")])
         if not path:
             return
-        with open(path, mode="w", encoding="utf_8_sig", newline="") as f:
-            writer = csv.writer(f)
-            writer.writerow([HEADERS[c] for c in COLUMNS])
-            for x in self.tree.get_children():
-                writer.writerow(self.tree.item(x)["values"])
+        try:
+            with open(path, mode="w", encoding="utf_8_sig", newline="") as f:
+                writer = csv.writer(f)
+                writer.writerow([HEADERS[c] for c in COLUMNS])
+                for x in self.tree.get_children():
+                    writer.writerow(self.tree.item(x)["values"])
+            messagebox.showinfo("成功", f"ファイルを保存しました:\n{path}")
+        except Exception as e:
+            messagebox.showerror("エラー", f"保存中にエラーが発生しました:\n{str(e)}")
 
     def load_csv(self):
-        path = filedialog.askopenfilename(filetypes=[("CSV", "*.csv")])
+        """CSVファイルから読込"""
+        path = filedialog.askopenfilename(filetypes=[("CSV Files", "*.csv"), ("All Files", "*.*")])
         if not path:
             return
-        for x in self.tree.get_children():
-            self.tree.delete(x)
-        with open(path, mode="r", encoding="utf_8_sig") as f:
-            rdr = csv.reader(f)
-            next(rdr, None)
-            for r in rdr:
-                if r:
-                    self.tree.insert("", tk.END, values=r)
+        try:
+            for x in self.tree.get_children():
+                self.tree.delete(x)
+            with open(path, mode="r", encoding="utf_8_sig") as f:
+                rdr = csv.reader(f)
+                next(rdr, None)
+                for r in rdr:
+                    if r:
+                        self.tree.insert("", tk.END, values=r)
+            messagebox.showinfo("成功", f"ファイルを読み込みました:\n{path}")
+        except Exception as e:
+            messagebox.showerror("エラー", f"読込中にエラーが発生しました:\n{str(e)}")
 
 
 if __name__ == "__main__":
